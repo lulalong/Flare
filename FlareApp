@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Flare — Inflammation Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Sans:wght@300;400;500&display=swap');
+
+:root {
+–bg: #0e0f14;
+–surface: #161820;
+–surface2: #1e2028;
+–border: #2a2d3a;
+–text: #e8e4dc;
+–text-dim: #7a7d8e;
+–accent: #c87941;
+–low: #4caf7d;
+–mid: #e8a83e;
+–high: #e05c5c;
+–radius: 16px;
+–safe-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+- { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: ‘DM Sans’, sans-serif; background: var(–bg); color: var(–text); min-height: 100vh; overflow-x: hidden; }
+
+header {
+padding: 56px 24px 0;
+background: var(–surface);
+position: sticky; top: 0; z-index: 100;
+backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+border-bottom: 1px solid var(–border);
+}
+header h1 { font-family: ‘Playfair Display’, serif; font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }
+header .date { font-size: 13px; color: var(–text-dim); margin-top: 2px; font-weight: 300; padding-bottom: 14px; }
+
+nav { display: flex; gap: 4px; padding: 10px 20px 12px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+nav::-webkit-scrollbar { display: none; }
+.nav-btn { background: transparent; border: 1px solid var(–border); color: var(–text-dim); border-radius: 24px; padding: 7px 14px; font-size: 13px; font-family: ‘DM Sans’, sans-serif; font-weight: 500; white-space: nowrap; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+.nav-btn.active { background: var(–accent); border-color: var(–accent); color: #fff; }
+
+.view { display: none; padding: 16px 20px 120px; animation: fadeUp 0.22s ease; }
+.view.active { display: block; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+.card { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); padding: 18px; margin-bottom: 12px; }
+.card-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(–text-dim); margin-bottom: 12px; font-weight: 500; }
+
+.section-header { display: flex; align-items: center; gap: 10px; margin: 20px 0 10px; }
+.section-header .sicon { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.section-header h2 { font-family: ‘Playfair Display’, serif; font-size: 18px; font-weight: 400; }
+.sicon-food { background: rgba(200,121,65,0.15); }
+.sicon-exercise { background: rgba(76,175,125,0.15); }
+.sicon-stress { background: rgba(155,89,182,0.15); }
+.sicon-pain { background: rgba(224,92,92,0.15); }
+.sicon-selfcare { background: rgba(76,175,125,0.12); }
+
+.slider-row { margin-bottom: 14px; }
+.slider-row label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 14px; }
+.slider-value { font-size: 13px; font-weight: 500; padding: 2px 10px; border-radius: 20px; background: var(–surface2); color: var(–accent); min-width: 36px; text-align: center; }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 4px; background: var(–surface2); outline: none; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(–accent); cursor: pointer; box-shadow: 0 2px 8px rgba(200,121,65,0.35); transition: transform 0.1s; }
+input[type=range]:active::-webkit-slider-thumb { transform: scale(1.2); }
+
+.chip-grid { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 4px; }
+
+/* Base chip — just a label, no tap interaction itself */
+.chip {
+background: var(–surface2); border: 1px solid var(–border); border-radius: 24px;
+padding: 0; font-size: 13px; color: var(–text-dim);
+display: flex; align-items: center; gap: 0; user-select: none;
+overflow: hidden; transition: border-color 0.15s, background 0.15s;
+}
+.chip.selected { border-color: var(–accent); background: rgba(200,121,65,0.08); }
+
+/* Food name label inside chip */
+.chip-name {
+padding: 7px 10px 7px 13px;
+color: inherit;
+cursor: default;
+}
+.chip.selected .chip-name { color: var(–accent); }
+
+/* Portion stepper inside chip */
+.chip-stepper {
+display: flex; align-items: center; gap: 0;
+}
+.chip-step {
+width: 28px; height: 30px;
+background: none; border: none;
+color: var(–text-dim); font-size: 16px; line-height: 1;
+cursor: pointer; display: flex; align-items: center; justify-content: center;
+transition: color 0.12s, background 0.12s;
+flex-shrink: 0;
+}
+.chip-step:active { background: rgba(200,121,65,0.15); color: var(–accent); }
+.chip.selected .chip-step { color: var(–accent); }
+.chip-step.minus { border-left: 1px solid var(–border); }
+.chip-step.plus  { border-left: 1px solid var(–border); padding-right: 6px; border-radius: 0 24px 24px 0; }
+
+.chip-portion {
+font-size: 12px; font-weight: 600; min-width: 18px; text-align: center;
+color: var(–text-dim); line-height: 30px;
+}
+.chip.selected .chip-portion { color: var(–accent); }
+
+/* Simple toggle chip for self-care and location chips */
+.chip-good {
+background: var(–surface2); border: 1px solid var(–border); border-radius: 24px;
+padding: 8px 14px; font-size: 13px; color: var(–text-dim);
+cursor: pointer; transition: all 0.15s; user-select: none; display: inline-flex; align-items: center;
+}
+.chip-good.selected { border-color: var(–low); color: var(–low); background: rgba(76,175,125,0.1); }
+
+.chip.good-chip.selected { border-color: var(–low); background: rgba(76,175,125,0.08); }
+.chip.good-chip.selected .chip-name { color: var(–low); }
+.chip.good-chip.selected .chip-step { color: var(–low); }
+.chip.good-chip.selected .chip-portion { color: var(–low); }
+
+.scale-row { display: flex; gap: 5px; flex-wrap: wrap; }
+.scale-btn { flex: 1; min-width: 32px; height: 38px; border-radius: 10px; border: 1px solid var(–border); background: var(–surface2); color: var(–text-dim); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+.scale-btn[data-level=“low”].selected { background: rgba(76,175,125,0.25); border-color: var(–low); color: var(–low); }
+.scale-btn[data-level=“mid”].selected { background: rgba(232,168,62,0.25); border-color: var(–mid); color: var(–mid); }
+.scale-btn[data-level=“high”].selected { background: rgba(224,92,92,0.25); border-color: var(–high); color: var(–high); }
+.scale-label { display: flex; justify-content: space-between; font-size: 11px; color: var(–text-dim); margin-top: 5px; }
+
+textarea, input[type=date], input[type=text], select {
+width: 100%; background: var(–surface2); border: 1px solid var(–border); border-radius: 12px;
+padding: 11px 13px; color: var(–text); font-family: ‘DM Sans’, sans-serif;
+font-size: 14px; outline: none; transition: border-color 0.2s; color-scheme: dark;
+}
+textarea { resize: none; min-height: 76px; }
+textarea:focus, input[type=date]:focus, input[type=text]:focus, select:focus { border-color: var(–accent); }
+
+.save-btn { width: 100%; background: var(–accent); color: #fff; border: none; border-radius: var(–radius); padding: 17px; font-family: ‘DM Sans’, sans-serif; font-size: 16px; font-weight: 500; cursor: pointer; transition: all 0.2s; margin-top: 8px; }
+.save-btn:active { transform: scale(0.98); opacity: 0.9; }
+
+.food-cat-title { font-size: 11px; color: var(–text-dim); margin: 12px 0 7px; text-transform: uppercase; letter-spacing: 1px; }
+
+/* ── EXERCISE ACTIVITY ROWS ── */
+.activity-row {
+border-bottom: 1px solid var(–border);
+padding: 14px 0;
+}
+.activity-row:last-child { border-bottom: none; padding-bottom: 0; }
+.activity-row:first-child { padding-top: 0; }
+
+.activity-header {
+display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+}
+.activity-icon { font-size: 22px; }
+.activity-name { font-size: 15px; color: var(–text); font-weight: 500; flex: 1; }
+.activity-summary {
+font-size: 12px; color: var(–accent); font-weight: 500;
+background: rgba(200,121,65,0.1); border: 1px solid rgba(200,121,65,0.25);
+border-radius: 10px; padding: 3px 9px; white-space: nowrap;
+}
+.activity-summary.empty { color: var(–text-dim); background: var(–surface2); border-color: var(–border); }
+
+.wheels-row {
+display: flex; gap: 10px; align-items: flex-start;
+}
+.wheel-group { flex: 1; }
+.wheel-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(–text-dim); margin-bottom: 5px; text-align: center; }
+
+/* ── DRUM WHEEL ── */
+.drum-wheel {
+height: 120px;
+overflow: hidden;
+position: relative;
+border-radius: 12px;
+background: var(–surface2);
+border: 1px solid var(–border);
+cursor: grab;
+user-select: none;
+-webkit-user-select: none;
+}
+.drum-wheel:active { cursor: grabbing; }
+
+/* selection highlight band */
+.drum-wheel::before {
+content: ‘’;
+position: absolute;
+top: 50%; left: 0; right: 0;
+transform: translateY(-50%);
+height: 36px;
+background: rgba(200,121,65,0.12);
+border-top: 1px solid rgba(200,121,65,0.35);
+border-bottom: 1px solid rgba(200,121,65,0.35);
+z-index: 2;
+pointer-events: none;
+}
+/* fade top/bottom */
+.drum-wheel::after {
+content: ‘’;
+position: absolute; inset: 0;
+background: linear-gradient(to bottom,
+var(–surface2) 0%,
+transparent 30%,
+transparent 70%,
+var(–surface2) 100%);
+z-index: 3;
+pointer-events: none;
+}
+
+.drum-track {
+position: absolute;
+width: 100%;
+will-change: transform;
+}
+.drum-item {
+height: 36px;
+display: flex; align-items: center; justify-content: center;
+font-size: 14px;
+font-family: ‘DM Sans’, sans-serif;
+color: var(–text-dim);
+transition: color 0.15s;
+}
+.drum-item.center { color: var(–text); font-weight: 500; }
+
+/* LOCATION PAIN ROWS */
+.loc-pain-row {
+display: flex; align-items: center; gap: 10px;
+padding: 9px 0;
+border-bottom: 1px solid var(–border);
+}
+.loc-pain-row:last-child { border-bottom: none; padding-bottom: 0; }
+.loc-pain-row:first-child { padding-top: 0; }
+.loc-pain-name {
+font-size: 14px; color: var(–text); flex: 1; min-width: 0;
+}
+.loc-pain-stepper {
+display: flex; align-items: center; gap: 0; flex-shrink: 0;
+}
+.loc-pain-btn {
+width: 30px; height: 30px; border-radius: 8px;
+background: var(–surface2); border: 1px solid var(–border);
+color: var(–text-dim); font-size: 17px; line-height: 1;
+cursor: pointer; display: flex; align-items: center; justify-content: center;
+transition: all 0.12s; flex-shrink: 0;
+}
+.loc-pain-btn:active { background: rgba(224,92,92,0.15); color: var(–high); border-color: var(–high); }
+.loc-pain-score {
+font-size: 15px; font-weight: 600; width: 30px; text-align: center;
+color: var(–text-dim); transition: color 0.15s;
+}
+.loc-pain-score.s-low  { color: var(–low); }
+.loc-pain-score.s-mid  { color: var(–mid); }
+.loc-pain-score.s-high { color: var(–high); }
+
+/* HISTORY */
+.history-entry { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); padding: 15px 16px; margin-bottom: 10px; position: relative; }
+.history-date { font-family: ‘Playfair Display’, serif; font-size: 15px; margin-bottom: 9px; }
+.history-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 7px; }
+.pill { font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 500; border: 1px solid; }
+.pill-low { color: var(–low); border-color: var(–low); background: rgba(76,175,125,0.1); }
+.pill-mid { color: var(–mid); border-color: var(–mid); background: rgba(232,168,62,0.1); }
+.pill-high { color: var(–high); border-color: var(–high); background: rgba(224,92,92,0.1); }
+.pill-neutral { color: var(–text-dim); border-color: var(–border); background: var(–surface2); }
+.history-detail { font-size: 12px; color: var(–text-dim); line-height: 1.65; }
+.delete-btn { position: absolute; top: 13px; right: 13px; background: none; border: none; color: var(–text-dim); font-size: 20px; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+.delete-btn:active { color: var(–high); }
+
+/* INSIGHTS */
+.insight-card { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); padding: 18px; margin-bottom: 12px; }
+.insight-title { font-family: ‘Playfair Display’, serif; font-size: 16px; margin-bottom: 14px; }
+.mini-chart { display: flex; align-items: flex-end; gap: 4px; height: 60px; margin-top: 8px; }
+.bar-col { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 3px; }
+.bar { width: 100%; border-radius: 4px 4px 0 0; min-height: 2px; }
+.bar-pain { background: var(–high); opacity: 0.8; }
+.bar-inflame { background: var(–accent); opacity: 0.8; }
+.bar-label { font-size: 9px; color: var(–text-dim); text-align: center; }
+.corr-row { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid var(–border); gap: 12px; }
+.corr-row:last-child { border-bottom: none; }
+.corr-icon { font-size: 20px; }
+.corr-info { flex: 1; }
+.corr-label { font-size: 13px; color: var(–text); }
+.corr-sub { font-size: 11px; color: var(–text-dim); margin-top: 2px; }
+.corr-badge { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+.corr-pos { background: rgba(224,92,92,0.15); color: var(–high); }
+.corr-neg { background: rgba(76,175,125,0.15); color: var(–low); }
+.corr-neut { background: var(–surface2); color: var(–text-dim); }
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat-box { background: var(–surface2); border-radius: 12px; padding: 14px; text-align: center; }
+.stat-num { font-family: ‘Playfair Display’, serif; font-size: 28px; color: var(–accent); display: block; }
+.stat-desc { font-size: 11px; color: var(–text-dim); margin-top: 4px; }
+.no-data { text-align: center; padding: 36px 0; color: var(–text-dim); font-size: 13px; }
+
+/* CUSTOMISE */
+.cust-section { margin-bottom: 28px; }
+.cust-section-title { font-family: ‘Playfair Display’, serif; font-size: 17px; font-weight: 400; margin-bottom: 12px; color: var(–text); }
+.cust-group { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); overflow: hidden; margin-bottom: 10px; }
+.cust-group-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(–text-dim); padding: 10px 16px 2px; font-weight: 500; }
+.cust-item { display: flex; align-items: center; justify-content: space-between; padding: 11px 16px; border-bottom: 1px solid var(–border); gap: 12px; }
+.cust-item:last-child { border-bottom: none; }
+.cust-item-name { font-size: 14px; color: var(–text); flex: 1; }
+.remove-btn { background: rgba(224,92,92,0.1); border: 1px solid rgba(224,92,92,0.3); color: var(–high); border-radius: 8px; padding: 5px 12px; font-size: 12px; font-family: ‘DM Sans’, sans-serif; cursor: pointer; flex-shrink: 0; }
+.add-row { display: flex; gap: 8px; margin-top: 6px; }
+.add-row input[type=text] { flex: 1; }
+.add-btn { background: rgba(200,121,65,0.15); border: 1px solid rgba(200,121,65,0.4); color: var(–accent); border-radius: 12px; padding: 10px 16px; font-size: 14px; font-family: ‘DM Sans’, sans-serif; font-weight: 500; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+.field-label { font-size: 12px; color: var(–text-dim); margin: 10px 0 5px; text-transform: uppercase; letter-spacing: 1px; }
+
+.empty-state { text-align: center; padding: 54px 20px; color: var(–text-dim); }
+.empty-state .eicon { font-size: 40px; margin-bottom: 12px; }
+.empty-state p { font-size: 14px; line-height: 1.6; }
+
+#toast { position: fixed; bottom: calc(88px + var(–safe-bottom)); left: 50%; transform: translateX(-50%) translateY(16px); background: var(–low); color: #fff; padding: 11px 22px; border-radius: 24px; font-size: 14px; font-weight: 500; opacity: 0; transition: all 0.28s; pointer-events: none; z-index: 999; white-space: nowrap; }
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.err { background: var(–high); }
+</style>
+
+</head>
+<body>
+
+<header>
+  <h1>Flare</h1>
+  <div class="date" id="headerDate"></div>
+</header>
+<nav>
+  <button class="nav-btn active" onclick="showView('log',this)">📋 Log</button>
+  <button class="nav-btn" onclick="showView('history',this)">📅 History</button>
+  <button class="nav-btn" onclick="showView('insights',this)">📊 Insights</button>
+  <button class="nav-btn" onclick="showView('customise',this)">⚙️ Customise</button>
+</nav>
+
+<!-- ══════════ LOG ══════════ -->
+
+<div class="view active" id="view-log">
+
+  <div class="section-header"><div class="sicon sicon-food">🍽</div><h2>Food &amp; Drink</h2></div>
+  <div class="card"><div class="card-title">Potentially Inflammatory</div><div id="log-inflam-body"></div></div>
+  <div class="card"><div class="card-title">Anti-inflammatory</div><div class="chip-grid" id="log-good-chips"></div></div>
+
+  <!-- EXERCISE -->
+
+  <div class="section-header"><div class="sicon sicon-exercise">🏋</div><h2>Exercise</h2></div>
+  <div class="card" id="activity-card">
+    <div class="card-title">Duration &amp; Intensity per activity</div>
+    <div id="activity-rows"></div>
+  </div>
+
+  <!-- STRESS -->
+
+  <div class="section-header"><div class="sicon sicon-stress">🧠</div><h2>Stress &amp; Sleep</h2></div>
+  <div class="card">
+    <div class="slider-row">
+      <label>Stress level <span class="slider-value" id="stressVal">3</span></label>
+      <input type="range" id="sl-stress" min="0" max="10" value="3" oninput="updateSlider(this,'stressVal')">
+    </div>
+    <div class="slider-row" style="margin-bottom:0">
+      <label>Sleep quality <span class="slider-value" id="sleepVal">6</span></label>
+      <input type="range" id="sl-sleep" min="0" max="10" value="6" oninput="updateSlider(this,'sleepVal')">
+    </div>
+  </div>
+
+  <!-- SELF CARE -->
+
+  <div class="section-header"><div class="sicon sicon-selfcare">🌿</div><h2>Self Care</h2></div>
+  <div class="card"><div class="chip-grid" id="log-selfcare-chips"></div></div>
+
+  <!-- PAIN -->
+
+  <div class="section-header"><div class="sicon sicon-pain">🔥</div><h2>How do you feel?</h2></div>
+  <div class="card">
+    <div class="card-title">Overall Inflammation (0 = none · 10 = severe)</div>
+    <div class="scale-row" id="inflame-scale"></div>
+    <div class="scale-label"><span>None</span><span>Severe</span></div>
+    <div style="margin-top:18px" class="card-title">Pain by location (0 = none · 10 = severe)</div>
+    <div id="log-location-pain"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Notes</div>
+    <textarea id="notes" placeholder="Anything else worth noting…" rows="3"></textarea>
+    <div style="margin-top:12px" class="card-title">Date</div>
+    <input type="date" id="entryDate">
+  </div>
+  <button class="save-btn" onclick="saveEntry()">Save entry →</button>
+</div>
+
+<!-- ══════════ HISTORY ══════════ -->
+
+<div class="view" id="view-history">
+  <div style="margin:4px 0 14px">
+    <div class="card-title" style="margin-bottom:7px">Filter by date</div>
+    <input type="date" id="filterDate" onchange="renderHistory()">
+  </div>
+  <div id="history-list"></div>
+</div>
+
+<!-- ══════════ INSIGHTS ══════════ -->
+
+<div class="view" id="view-insights">
+  <div id="insights-content" style="padding-top:8px"></div>
+</div>
+
+<!-- ══════════ CUSTOMISE ══════════ -->
+
+<div class="view" id="view-customise">
+  <div class="cust-section">
+    <div class="cust-section-title">🍽 Inflammatory Foods</div>
+    <div id="cust-inflam-groups"></div>
+    <div style="margin-top:10px">
+      <div class="field-label">Category</div>
+      <select id="new-inflam-cat" style="margin-bottom:8px">
+        <option value="gluten">Gluten / Grains</option>
+        <option value="dairy">Dairy</option>
+        <option value="sugar">Sugar &amp; Sweeteners</option>
+        <option value="other">Other</option>
+      </select>
+      <div class="field-label">New item name</div>
+      <div class="add-row">
+        <input type="text" id="new-inflam-name" placeholder="e.g. Sourdough">
+        <button class="add-btn" onclick="addInflamFood()">+ Add</button>
+      </div>
+    </div>
+  </div>
+  <div class="cust-section">
+    <div class="cust-section-title">🥦 Anti-inflammatory Foods</div>
+    <div class="cust-group" id="cust-good-group"></div>
+    <div class="add-row" style="margin-top:8px">
+      <input type="text" id="new-good-name" placeholder="e.g. Broccoli">
+      <button class="add-btn" onclick="addGoodFood()">+ Add</button>
+    </div>
+  </div>
+  <div class="cust-section">
+    <div class="cust-section-title">📍 Pain Locations</div>
+    <div class="cust-group" id="cust-location-group"></div>
+    <div class="add-row" style="margin-top:8px">
+      <input type="text" id="new-loc-name" placeholder="e.g. Shoulder">
+      <button class="add-btn" onclick="addLocation()">+ Add</button>
+    </div>
+  </div>
+  <div class="cust-section">
+    <div class="cust-section-title">🌿 Self Care</div>
+    <div class="cust-group" id="cust-selfcare-group"></div>
+    <div class="add-row" style="margin-top:8px">
+      <input type="text" id="new-selfcare-name" placeholder="e.g. Meditation">
+      <button class="add-btn" onclick="addSelfCareItem()">+ Add</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast">Saved ✓</div>
+
+<script>
+// ═══════════════════════════════════════
+// FIXED ACTIVITIES (not customisable — per spec)
+// ═══════════════════════════════════════
+const ACTIVITIES = [
+  { id: 'hwlr', label: 'Heavy Weight / Low Rep',  icon: '🏋' },
+  { id: 'lwhr', label: 'Light Weight / High Rep', icon: '💪' },
+  { id: 'walk', label: 'Walking',                 icon: '🚶' },
+  { id: 'swim', label: 'Swimming',                icon: '🏊' },
+];
+
+const TIME_OPTIONS      = ['0 min','20 min','40 min','1 hr','1 hr 20','1 hr 40','2 hr','2 hr 20','2 hr 40','3 hr'];
+const TIME_VALUES       = [0, 20, 40, 60, 80, 100, 120, 140, 160, 180];
+const INTENSITY_OPTIONS = ['None','1','2','3','4','5','6','7','8','9','10'];
+const INTENSITY_VALUES  = [0,1,2,3,4,5,6,7,8,9,10];
+
+// State: { activityId: { timeIdx, intensityIdx } }
+let activityState = {};
+ACTIVITIES.forEach(a => { activityState[a.id] = { timeIdx: 0, intensityIdx: 0 }; });
+
+// ═══════════════════════════════════════
+// DEFAULTS & SETTINGS
+// ═══════════════════════════════════════
+const DEFAULTS = {
+  selfCare: ['Yoga','Dry brushing','Salt bath','Legs up the wall'],
+  inflam: {
+    gluten: ['Bread','Pasta','Cereal','Oats'],
+    dairy:  ['Milk','Cheese','Yoghurt','Butter','Ice Cream'],
+    sugar:  ['Sugar/Sweets','Fizzy Drinks','Fruit Juice','Processed Food'],
+    other:  ['Tomatoes','Peppers','Aubergine','Red Meat','Fried Food'],
+  },
+  good: ['Oily Fish','Leafy Greens','Berries','Turmeric','Nuts/Seeds','Olive Oil','Ginger','Garlic'],
+  locations: ['Joints','Lower Back','Neck','Hands','Knees','Hips','Gut','Head','Skin','Widespread'],
+};
+const CAT_LABELS = { gluten:'Gluten / Grains', dairy:'Dairy', sugar:'Sugar & Sweeteners', other:'Other' };
+
+function getSettings() {
+  try { return JSON.parse(localStorage.getItem('flare_settings') || 'null') || JSON.parse(JSON.stringify(DEFAULTS)); }
+  catch { return JSON.parse(JSON.stringify(DEFAULTS)); }
+}
+function saveSettings(s) { localStorage.setItem('flare_settings', JSON.stringify(s)); }
+function getAll() { try { return JSON.parse(localStorage.getItem('flare_entries') || '[]'); } catch { return []; } }
+
+// ═══════════════════════════════════════
+// LOG STATE
+// ═══════════════════════════════════════
+let foodQty = {}, goodFoods = {}, selfCare = new Set(), inflameScore = null, locationPain = {};
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('headerDate').textContent = fmtDateFull(new Date());
+  document.getElementById('entryDate').value = todayStr();
+  buildLogView();
+  buildScales();
+});
+
+function buildLogView() {
+  const s = getSettings();
+  buildInflamChips(s);
+  buildGoodChips(s);
+  buildSelfCareChips();
+  buildActivityRows();
+  buildLocationChips(s);
+}
+
+// ═══════════════════════════════════════
+// FOOD
+// ═══════════════════════════════════════
+function buildInflamChips(s) {
+  const body = document.getElementById('log-inflam-body');
+  body.innerHTML = '';
+  let any = false;
+  Object.entries(s.inflam).forEach(([cat, items]) => {
+    if (!items.length) return;
+    any = true;
+    const lbl = document.createElement('div'); lbl.className = 'food-cat-title'; lbl.textContent = CAT_LABELS[cat]; body.appendChild(lbl);
+    const grid = document.createElement('div'); grid.className = 'chip-grid';
+    items.forEach(item => grid.appendChild(makeInflamChip(item)));
+    body.appendChild(grid);
+  });
+  if (!any) body.innerHTML = '<div style="font-size:13px;color:var(--text-dim)">No items — add some in Customise</div>';
+}
+function makeInflamChip(item) {
+  const ch = document.createElement('div');
+  ch.className = 'chip' + (foodQty[item] ? ' selected' : '');
+
+  const namePart = document.createElement('span');
+  namePart.className = 'chip-name';
+  namePart.textContent = item;
+
+  const stepper = document.createElement('div');
+  stepper.className = 'chip-stepper';
+
+  const minusBtn = document.createElement('button');
+  minusBtn.className = 'chip-step minus';
+  minusBtn.textContent = '−';
+  minusBtn.setAttribute('aria-label', 'Remove portion');
+
+  const portionEl = document.createElement('span');
+  portionEl.className = 'chip-portion';
+  portionEl.textContent = foodQty[item] || 0;
+
+  const plusBtn = document.createElement('button');
+  plusBtn.className = 'chip-step plus';
+  plusBtn.textContent = '+';
+  plusBtn.setAttribute('aria-label', 'Add portion');
+
+  function update() {
+    const qty = foodQty[item] || 0;
+    portionEl.textContent = qty;
+    ch.classList.toggle('selected', qty > 0);
+    minusBtn.style.opacity = qty === 0 ? '0.3' : '1';
+  }
+
+  plusBtn.onclick = (e) => {
+    e.stopPropagation();
+    foodQty[item] = (foodQty[item] || 0) + 1;
+    if (foodQty[item] > 9) foodQty[item] = 9;
+    update();
+  };
+  minusBtn.onclick = (e) => {
+    e.stopPropagation();
+    if (!foodQty[item]) return;
+    foodQty[item]--;
+    if (foodQty[item] === 0) delete foodQty[item];
+    update();
+  };
+
+  stepper.appendChild(minusBtn);
+  stepper.appendChild(portionEl);
+  stepper.appendChild(plusBtn);
+  ch.appendChild(namePart);
+  ch.appendChild(stepper);
+  update();
+  return ch;
+}
+function buildGoodChips(s) {
+  const el = document.getElementById('log-good-chips'); el.innerHTML = '';
+  s.good.forEach(item => {
+    const ch = document.createElement('div');
+    ch.className = 'chip good-chip' + (goodFoods[item] ? ' selected' : '');
+
+    const namePart = document.createElement('span');
+    namePart.className = 'chip-name';
+    namePart.textContent = item;
+
+    const stepper = document.createElement('div');
+    stepper.className = 'chip-stepper';
+
+    const minusBtn = document.createElement('button');
+    minusBtn.className = 'chip-step minus';
+    minusBtn.textContent = '−';
+    minusBtn.setAttribute('aria-label', 'Remove portion');
+
+    const portionEl = document.createElement('span');
+    portionEl.className = 'chip-portion';
+    portionEl.textContent = goodFoods[item] || 0;
+
+    const plusBtn = document.createElement('button');
+    plusBtn.className = 'chip-step plus';
+    plusBtn.textContent = '+';
+    plusBtn.setAttribute('aria-label', 'Add portion');
+
+    function update() {
+      const qty = goodFoods[item] || 0;
+      portionEl.textContent = qty;
+      ch.classList.toggle('selected', qty > 0);
+      minusBtn.style.opacity = qty === 0 ? '0.3' : '1';
+    }
+
+    plusBtn.onclick = (e) => {
+      e.stopPropagation();
+      goodFoods[item] = (goodFoods[item] || 0) + 1;
+      if (goodFoods[item] > 9) goodFoods[item] = 9;
+      update();
+    };
+    minusBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (!goodFoods[item]) return;
+      goodFoods[item]--;
+      if (goodFoods[item] === 0) delete goodFoods[item];
+      update();
+    };
+
+    stepper.appendChild(minusBtn);
+    stepper.appendChild(portionEl);
+    stepper.appendChild(plusBtn);
+    ch.appendChild(namePart);
+    ch.appendChild(stepper);
+    update();
+    el.appendChild(ch);
+  });
+}
+
+// ═══════════════════════════════════════
+// SELF CARE CHIPS
+// ═══════════════════════════════════════
+function buildSelfCareChips() {
+  const el = document.getElementById('log-selfcare-chips'); el.innerHTML = '';
+  const s = getSettings();
+  s.selfCare.forEach(item => {
+    const ch = document.createElement('div');
+    ch.className = 'chip-good' + (selfCare.has(item) ? ' selected' : '');
+    ch.textContent = item;
+    ch.onclick = () => {
+      if (selfCare.has(item)) { selfCare.delete(item); ch.classList.remove('selected'); }
+      else { selfCare.add(item); ch.classList.add('selected'); }
+    };
+    el.appendChild(ch);
+  });
+}
+
+// ═══════════════════════════════════════
+// ACTIVITY ROWS WITH DRUM WHEELS
+// ═══════════════════════════════════════
+function buildActivityRows() {
+  const container = document.getElementById('activity-rows');
+  container.innerHTML = '';
+  ACTIVITIES.forEach(act => {
+    const row = document.createElement('div');
+    row.className = 'activity-row';
+    row.id = 'act-' + act.id;
+
+    const state = activityState[act.id];
+    const tLabel = TIME_OPTIONS[state.timeIdx];
+    const iLabel = state.intensityIdx === 0 ? 'None' : INTENSITY_OPTIONS[state.intensityIdx];
+    const isEmpty = state.timeIdx === 0 && state.intensityIdx === 0;
+    const summaryClass = isEmpty ? 'activity-summary empty' : 'activity-summary';
+    const summaryText = isEmpty ? 'Not done' : `${tLabel} · Intensity ${iLabel}`;
+
+    row.innerHTML = `
+      <div class="activity-header">
+        <span class="activity-icon">${act.icon}</span>
+        <span class="activity-name">${act.label}</span>
+        <span class="${summaryClass}" id="summary-${act.id}">${summaryText}</span>
+      </div>
+      <div class="wheels-row">
+        <div class="wheel-group">
+          <div class="wheel-label">Duration</div>
+          <div class="drum-wheel" id="tw-${act.id}"></div>
+        </div>
+        <div class="wheel-group">
+          <div class="wheel-label">Intensity</div>
+          <div class="drum-wheel" id="iw-${act.id}"></div>
+        </div>
+      </div>`;
+    container.appendChild(row);
+
+    initDrumWheel(`tw-${act.id}`, TIME_OPTIONS, state.timeIdx, (idx) => {
+      activityState[act.id].timeIdx = idx;
+      updateActivitySummary(act.id);
+    });
+    initDrumWheel(`iw-${act.id}`, INTENSITY_OPTIONS, state.intensityIdx, (idx) => {
+      activityState[act.id].intensityIdx = idx;
+      updateActivitySummary(act.id);
+    });
+  });
+}
+
+function updateActivitySummary(actId) {
+  const state = activityState[actId];
+  const el = document.getElementById('summary-' + actId);
+  const tLabel = TIME_OPTIONS[state.timeIdx];
+  const iLabel = INTENSITY_OPTIONS[state.intensityIdx];
+  const isEmpty = state.timeIdx === 0 && state.intensityIdx === 0;
+  el.className = isEmpty ? 'activity-summary empty' : 'activity-summary';
+  el.textContent = isEmpty ? 'Not done' : `${tLabel} · Intensity ${iLabel}`;
+}
+
+// ═══════════════════════════════════════
+// DRUM WHEEL IMPLEMENTATION
+// ═══════════════════════════════════════
+function initDrumWheel(containerId, options, initialIdx, onChange) {
+  const container = document.getElementById(containerId);
+  const ITEM_H = 36;
+  const VISIBLE = 3; // items visible each side + centre
+  const total = options.length;
+
+  // Build track
+  const track = document.createElement('div');
+  track.className = 'drum-track';
+
+  // Pad with 1 ghost above/below so centre item is always reachable
+  const padded = [options[total - 1], ...options, options[0]]; // 1 pad each side
+  padded.forEach((txt, i) => {
+    const item = document.createElement('div');
+    item.className = 'drum-item';
+    item.textContent = txt;
+    track.appendChild(item);
+  });
+  container.appendChild(track);
+
+  // Position: offset so item at index sits in centre
+  // Centre of container = 60px (half of 120px)
+  // Centre item top = 60 - 18 = 42px
+  // With 1 ghost pad, real item[0] is at index 1 in padded array
+  const centreOffset = (container.offsetHeight / 2) - (ITEM_H / 2);
+
+  let currentIdx = initialIdx; // 0-based into options[]
+
+  function getY(idx) {
+    // padded[0] is ghost, padded[1] is options[0]
+    return centreOffset - (idx + 1) * ITEM_H; // +1 accounts for ghost pad
+  }
+
+  function setPosition(y, animate) {
+    track.style.transition = animate ? 'transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94)' : 'none';
+    track.style.transform = `translateY(${y}px)`;
+  }
+
+  function snapToIndex(idx, animate) {
+    currentIdx = Math.max(0, Math.min(total - 1, idx));
+    setPosition(getY(currentIdx), animate);
+    updateCentreClass();
+    onChange(currentIdx);
+  }
+
+  function updateCentreClass() {
+    const items = track.querySelectorAll('.drum-item');
+    items.forEach((el, i) => {
+      el.classList.toggle('center', i === currentIdx + 1);
+    });
+  }
+
+  // Set initial position immediately
+  setPosition(getY(currentIdx), false);
+  updateCentreClass();
+
+  // ── Touch / mouse drag ──
+  let startY = 0, startTranslate = 0, dragging = false;
+  let lastY = 0, lastT = 0, velocity = 0;
+
+  function getTranslateY() {
+    const m = new DOMMatrix(getComputedStyle(track).transform);
+    return m.m42;
+  }
+
+  function onStart(clientY) {
+    dragging = true;
+    startY = clientY;
+    startTranslate = getTranslateY();
+    lastY = clientY; lastT = Date.now(); velocity = 0;
+    track.style.transition = 'none';
+  }
+
+  function onMove(clientY) {
+    if (!dragging) return;
+    const now = Date.now(), dt = now - lastT;
+    if (dt > 0) velocity = (clientY - lastY) / dt;
+    lastY = clientY; lastT = now;
+    const delta = clientY - startY;
+    track.style.transform = `translateY(${startTranslate + delta}px)`;
+  }
+
+  function onEnd() {
+    if (!dragging) return; dragging = false;
+    const curY = getTranslateY();
+    // momentum
+    const momentum = velocity * 80;
+    const targetY = curY + momentum;
+    // find nearest index
+    // getY(idx) = centreOffset - (idx+1)*ITEM_H  =>  idx = (centreOffset - targetY)/ITEM_H - 1
+    const rawIdx = (centreOffset - targetY) / ITEM_H - 1;
+    snapToIndex(Math.round(rawIdx), true);
+  }
+
+  // Touch
+  container.addEventListener('touchstart', e => { e.preventDefault(); onStart(e.touches[0].clientY); }, { passive: false });
+  container.addEventListener('touchmove',  e => { e.preventDefault(); onMove(e.touches[0].clientY); },  { passive: false });
+  container.addEventListener('touchend',   e => { onEnd(); }, { passive: true });
+
+  // Mouse
+  container.addEventListener('mousedown', e => { e.preventDefault(); onStart(e.clientY); });
+  window.addEventListener('mousemove', e => { if (dragging) onMove(e.clientY); });
+  window.addEventListener('mouseup', e => { if (dragging) onEnd(); });
+
+  // Click to nudge
+  container.addEventListener('click', e => {
+    if (Math.abs(e.clientY - startY) > 5) return; // was a drag
+    const rect = container.getBoundingClientRect();
+    const relY = e.clientY - rect.top;
+    if (relY < container.offsetHeight * 0.35) snapToIndex(currentIdx - 1, true);
+    else if (relY > container.offsetHeight * 0.65) snapToIndex(currentIdx + 1, true);
+  });
+}
+
+// ═══════════════════════════════════════
+// SCALES & LOCATION PAIN
+// ═══════════════════════════════════════
+function buildScales() {
+  buildScale('inflame-scale', v => inflameScore = v);
+}
+function buildScale(id, onChange) {
+  const el = document.getElementById(id); el.innerHTML = '';
+  for (let i = 0; i <= 10; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'scale-btn'; btn.textContent = i; btn.dataset.level = i <= 3 ? 'low' : i <= 6 ? 'mid' : 'high';
+    btn.onclick = () => { el.querySelectorAll('.scale-btn').forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); onChange(i); };
+    el.appendChild(btn);
+  }
+}
+function buildLocationChips(s) {
+  const el = document.getElementById('log-location-pain'); el.innerHTML = '';
+  s.locations.forEach(loc => {
+    const score = locationPain[loc] || 0;
+
+    const row = document.createElement('div');
+    row.className = 'loc-pain-row';
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'loc-pain-name';
+    nameEl.textContent = loc;
+
+    const stepper = document.createElement('div');
+    stepper.className = 'loc-pain-stepper';
+
+    const minusBtn = document.createElement('button');
+    minusBtn.className = 'loc-pain-btn';
+    minusBtn.textContent = '−';
+    minusBtn.setAttribute('aria-label', 'Decrease');
+
+    const scoreEl = document.createElement('span');
+    scoreEl.className = 'loc-pain-score';
+
+    const plusBtn = document.createElement('button');
+    plusBtn.className = 'loc-pain-btn';
+    plusBtn.textContent = '+';
+    plusBtn.setAttribute('aria-label', 'Increase');
+
+    function update() {
+      const v = locationPain[loc] || 0;
+      scoreEl.textContent = v;
+      scoreEl.className = 'loc-pain-score' + (v === 0 ? '' : v <= 3 ? ' s-low' : v <= 6 ? ' s-mid' : ' s-high');
+      minusBtn.style.opacity = v === 0 ? '0.3' : '1';
+    }
+
+    plusBtn.onclick = () => {
+      locationPain[loc] = Math.min(10, (locationPain[loc] || 0) + 1);
+      update();
+    };
+    minusBtn.onclick = () => {
+      if (!locationPain[loc]) return;
+      locationPain[loc]--;
+      if (locationPain[loc] === 0) delete locationPain[loc];
+      update();
+    };
+
+    stepper.appendChild(minusBtn);
+    stepper.appendChild(scoreEl);
+    stepper.appendChild(plusBtn);
+    row.appendChild(nameEl);
+    row.appendChild(stepper);
+    el.appendChild(row);
+    update();
+  });
+}
+function updateSlider(input, valId) { document.getElementById(valId).textContent = input.value; }
+
+// ═══════════════════════════════════════
+// SAVE ENTRY
+// ═══════════════════════════════════════
+function saveEntry() {
+  const date = document.getElementById('entryDate').value;
+  if (!date) { showToast('Please pick a date', true); return; }
+
+  // Collect activity data
+  const exercises = {};
+  ACTIVITIES.forEach(act => {
+    const st = activityState[act.id];
+    if (st.timeIdx > 0 || st.intensityIdx > 0) {
+      exercises[act.id] = {
+        label: act.label,
+        icon: act.icon,
+        minutes: TIME_VALUES[st.timeIdx],
+        intensity: INTENSITY_VALUES[st.intensityIdx],
+        timeLabel: TIME_OPTIONS[st.timeIdx],
+        intensityLabel: INTENSITY_OPTIONS[st.intensityIdx],
+      };
+    }
+  });
+
+  const entry = {
+    date,
+    food: {...foodQty}, goodFood: {...goodFoods}, selfCare: [...selfCare],
+    exercises,
+    stress: +document.getElementById('sl-stress').value,
+    sleep: +document.getElementById('sl-sleep').value,
+    inflammation: inflameScore,
+    locationPain: {...locationPain},
+    notes: document.getElementById('notes').value.trim(),
+    saved: Date.now()
+  };
+
+  const all = getAll();
+  const idx = all.findIndex(e => e.date === date);
+  if (idx > -1) all[idx] = entry; else all.push(entry);
+  all.sort((a,b) => b.date.localeCompare(a.date));
+  localStorage.setItem('flare_entries', JSON.stringify(all));
+  showToast('Entry saved ✓');
+  renderHistory(); renderInsights(); resetLogForm();
+}
+
+function resetLogForm() {
+  foodQty = {}; goodFoods = {}; selfCare = new Set(); inflameScore = null; locationPain = {};
+  ACTIVITIES.forEach(a => { activityState[a.id] = { timeIdx: 0, intensityIdx: 0 }; });
+  buildLogView();
+  document.querySelectorAll('#inflame-scale .scale-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('notes').value = ''; document.getElementById('entryDate').value = todayStr();
+  document.getElementById('sl-stress').value = 3; document.getElementById('stressVal').textContent = '3';
+  document.getElementById('sl-sleep').value = 6; document.getElementById('sleepVal').textContent = '6';
+}
+
+// ═══════════════════════════════════════
+// HISTORY
+// ═══════════════════════════════════════
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  const fv = document.getElementById('filterDate').value;
+  let entries = getAll();
+  if (fv) entries = entries.filter(e => e.date === fv);
+  if (!entries.length) {
+    list.innerHTML = `<div class="empty-state"><div class="eicon">📋</div><p>No entries yet.</p></div>`;
+    return;
+  }
+  list.innerHTML = entries.map(e => {
+    const il = e.inflammation <= 3 ? 'low' : e.inflammation <= 6 ? 'mid' : 'high';
+    const exPills = Object.values(e.exercises || {}).map(ex =>
+      `<span class="pill pill-neutral">${ex.icon} ${ex.label} ${ex.timeLabel} · ${ex.intensityLabel === 'None' ? 'No intensity' : 'Intensity '+ex.intensityLabel}</span>`
+    ).join('');
+    const locPainEntries = Object.entries(e.locationPain || {}).filter(([,v]) => v > 0);
+    const locPainStr = locPainEntries.length
+      ? locPainEntries.map(([loc,v]) => `${loc} ${v}/10`).join(', ')
+      : (e.locations?.length ? e.locations.join(', ') : '—');  // backwards compat
+    return `<div class="history-entry">
+      <button class="delete-btn" onclick="deleteEntry('${e.date}')">×</button>
+      <div class="history-date">${fmtDateShort(e.date)}</div>
+      <div class="history-pills">
+        ${e.inflammation != null ? `<span class="pill pill-${il}">Inflame ${e.inflammation}/10</span>` : ''}
+        ${exPills || '<span class="pill pill-neutral">🛋 Rest day</span>'}
+        <span class="pill pill-neutral">😰 Stress ${e.stress}/10</span>
+        <span class="pill pill-neutral">💤 Sleep ${e.sleep}/10</span>
+      </div>
+      <div class="history-detail">
+        <b>Inflammatory:</b> ${Object.entries(e.food||{}).map(([f,q])=>q>1?`${f} ×${q}`:f).join(', ')||'—'}<br>
+        <b>Anti-inflam:</b> ${Object.entries(e.goodFood||{}).map(([f,q])=>q>1?`${f} ×${q}`:f).join(', ')||'—'}<br>
+        <b>Pain:</b> ${locPainStr}<br>
+        ${e.selfCare?.length ? `<b>Self care:</b> ${e.selfCare.join(', ')}<br>` : ''}
+        ${e.notes ? `<b>Notes:</b> ${e.notes}` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function deleteEntry(date) {
+  if (!confirm('Delete entry for ' + fmtDateShort(date) + '?')) return;
+  localStorage.setItem('flare_entries', JSON.stringify(getAll().filter(e => e.date !== date)));
+  renderHistory(); renderInsights(); showToast('Entry deleted');
+}
+
+// ═══════════════════════════════════════
+// INSIGHTS
+// ═══════════════════════════════════════
+function renderInsights() {
+  const el = document.getElementById('insights-content');
+  const all = getAll();
+  if (all.length < 3) {
+    el.innerHTML = `<div class="insight-card" style="margin-top:8px"><div class="no-data">📊 Log at least 3 entries to start seeing patterns.</div></div>`;
+    return;
+  }
+  const recent = all.slice(0,30);
+  const wi = recent.filter(e => e.inflammation != null);
+  const withLocPain = recent.filter(e => e.locationPain && Object.keys(e.locationPain).length > 0);
+  const avgP = withLocPain.length ? (withLocPain.reduce((s,e)=>s+Math.max(...Object.values(e.locationPain)),0)/withLocPain.length).toFixed(1) : '—';
+  const avgI = wi.length ? (wi.reduce((s,e)=>s+e.inflammation,0)/wi.length).toFixed(1) : '—';
+  const chartData = all.slice(0,14).reverse();
+  const bars = chartData.map(e => {
+    const maxPain = e.locationPain ? Math.max(0,...Object.values(e.locationPain)) : 0;
+    const ph = Math.round((maxPain/10)*55), ih = Math.round(((e.inflammation||0)/10)*55);
+    const lbl = new Date(e.date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}).replace(' ','<br>');
+    return `<div class="bar-col"><div style="display:flex;gap:2px;align-items:flex-end;height:55px"><div class="bar bar-pain" style="height:${ph}px;width:48%"></div><div class="bar bar-inflame" style="height:${ih}px;width:48%"></div></div><div class="bar-label">${lbl}</div></div>`;
+  }).join('');
+  const corrs = computeCorrelations(all);
+  el.innerHTML = `
+    <div style="margin-bottom:12px"><div class="stat-grid">
+      <div class="stat-box"><span class="stat-num">${avgP}</span><div class="stat-desc">Avg pain<br>(30 days)</div></div>
+      <div class="stat-box"><span class="stat-num">${avgI}</span><div class="stat-desc">Avg inflammation<br>(30 days)</div></div>
+      <div class="stat-box"><span class="stat-num">${recent.filter(e=>(e.locationPain&&Math.max(0,...Object.values(e.locationPain||{}))>=7)||e.inflammation>=7).length}</span><div class="stat-desc">High-flare days<br>(30 days)</div></div>
+      <div class="stat-box"><span class="stat-num">${all.length}</span><div class="stat-desc">Total entries<br>logged</div></div>
+    </div></div>
+    <div class="insight-card">
+      <div class="insight-title">Pain & Inflammation — last 14 entries</div>
+      <div style="display:flex;gap:12px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-dim)"><div style="width:10px;height:10px;border-radius:2px;background:var(--high);opacity:0.8"></div>Pain</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-dim)"><div style="width:10px;height:10px;border-radius:2px;background:var(--accent);opacity:0.8"></div>Inflammation</div>
+      </div>
+      <div class="mini-chart">${bars}</div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-title">Possible Correlations</div>
+      ${corrs.length ? corrs.map(c=>`<div class="corr-row"><div class="corr-icon">${c.icon}</div><div class="corr-info"><div class="corr-label">${c.label}</div><div class="corr-sub">${c.sub}</div></div><span class="corr-badge ${c.cls}">${c.badge}</span></div>`).join('') : '<div class="no-data">Keep logging to reveal correlations.</div>'}
+      <div style="margin-top:12px;font-size:11px;color:var(--text-dim);line-height:1.6">⚠️ Observed patterns only — not medical advice.</div>
+    </div>`;
+}
+
+function computeCorrelations(all) {
+  const results = [], scored = all.filter(e => e.inflammation != null);
+  if (scored.length < 5) return results;
+  function push(icon, label, withA, withoutA) {
+    if (withA.length < 2 || withoutA.length < 2) return;
+    const composite = e => { const lp = e.locationPain ? Math.max(0,...Object.values(e.locationPain)) : 0; return (lp + (e.inflammation||0)) / 2; };
+    const aw = avg(withA.map(composite)), ao = avg(withoutA.map(composite));
+    const diff = aw - ao;
+    if (Math.abs(diff) < 0.8) return;
+    results.push({ icon, label, sub:`Avg flare ${aw.toFixed(1)} vs ${ao.toFixed(1)} without (${withA.length} entries)`,
+      badge: diff>=0 ? `+${diff.toFixed(1)} higher` : `${diff.toFixed(1)} lower`,
+      cls: diff>=1.5 ? 'corr-pos' : diff<=-1 ? 'corr-neg' : 'corr-neut', sort:Math.abs(diff) });
+  }
+  // Food
+  [...new Set(scored.flatMap(e=>Object.keys(e.food||{})))].forEach(f => push('🍽',f,scored.filter(e=>(e.food||{})[f]),scored.filter(e=>!(e.food||{})[f])));
+  [...new Set(scored.flatMap(e=>Object.keys(e.goodFood||{})))].forEach(f => push('🥦',f,scored.filter(e=>(e.goodFood||{})[f]),scored.filter(e=>!(e.goodFood||{})[f])));
+  // Exercise activities
+  ACTIVITIES.forEach(act => {
+    const withEx = scored.filter(e => (e.exercises||{})[act.id]);
+    const withoutEx = scored.filter(e => !(e.exercises||{})[act.id]);
+    push(act.icon, act.label, withEx, withoutEx);
+  });
+  // Stress / sleep
+  // Per-location pain correlations
+  const allLocs = [...new Set(scored.flatMap(e=>Object.keys(e.locationPain||{})))];
+  allLocs.forEach(loc => {
+    push('📍', loc+' pain', scored.filter(e=>(e.locationPain||{})[loc]>0), scored.filter(e=>!((e.locationPain||{})[loc]>0)));
+  });
+  push('😰','High stress days (7+)', scored.filter(e=>e.stress>=7), scored.filter(e=>e.stress<=3));
+  push('💤','Poor sleep (≤4/10)', scored.filter(e=>e.sleep<=4), scored.filter(e=>e.sleep>=7));
+  results.sort((a,b)=>b.sort-a.sort);
+  return results.slice(0,8);
+}
+function avg(arr) { return arr.length ? arr.reduce((s,v)=>s+v,0)/arr.length : 0; }
+
+// ═══════════════════════════════════════
+// CUSTOMISE
+// ═══════════════════════════════════════
+function buildCustomiseView() {
+  const s = getSettings();
+  buildCustInflam(s); buildCustGood(s); buildCustLocations(s); buildCustSelfCare(s);
+}
+function buildCustInflam(s) {
+  const el = document.getElementById('cust-inflam-groups'); el.innerHTML = '';
+  Object.entries(s.inflam).forEach(([cat, items]) => {
+    if (!items.length) return;
+    const grp = document.createElement('div'); grp.className = 'cust-group';
+    grp.innerHTML = `<div class="cust-group-label">${CAT_LABELS[cat]}</div>`;
+    items.forEach(item => {
+      const row = document.createElement('div'); row.className = 'cust-item';
+      row.innerHTML = `<div class="cust-item-name">${item}</div><button class="remove-btn" onclick="removeInflamFood('${cat}','${escAttr(item)}')">Remove</button>`;
+      grp.appendChild(row);
+    });
+    el.appendChild(grp);
+  });
+}
+function buildCustGood(s) {
+  const el = document.getElementById('cust-good-group'); el.innerHTML = '';
+  if (!s.good.length) { el.innerHTML = '<div class="cust-item"><div class="cust-item-name" style="color:var(--text-dim);font-size:13px">No items</div></div>'; return; }
+  s.good.forEach(item => {
+    const row = document.createElement('div'); row.className = 'cust-item';
+    row.innerHTML = `<div class="cust-item-name">${item}</div><button class="remove-btn" onclick="removeGoodFood('${escAttr(item)}')">Remove</button>`;
+    el.appendChild(row);
+  });
+}
+function buildCustLocations(s) {
+  const el = document.getElementById('cust-location-group'); el.innerHTML = '';
+  if (!s.locations.length) { el.innerHTML = '<div class="cust-item"><div class="cust-item-name" style="color:var(--text-dim);font-size:13px">No locations</div></div>'; return; }
+  s.locations.forEach(loc => {
+    const row = document.createElement('div'); row.className = 'cust-item';
+    row.innerHTML = `<div class="cust-item-name">${loc}</div><button class="remove-btn" onclick="removeLocation('${escAttr(loc)}')">Remove</button>`;
+    el.appendChild(row);
+  });
+}
+function addInflamFood() {
+  const name = document.getElementById('new-inflam-name').value.trim(), cat = document.getElementById('new-inflam-cat').value;
+  if (!name) { showToast('Enter a name', true); return; }
+  const s = getSettings(); if (s.inflam[cat].includes(name)) { showToast('Already in list', true); return; }
+  s.inflam[cat].push(name); saveSettings(s); buildCustInflam(s); buildInflamChips(s); showToast(name+' added');
+  document.getElementById('new-inflam-name').value = '';
+}
+function removeInflamFood(cat, item) {
+  const s = getSettings(); s.inflam[cat] = s.inflam[cat].filter(x=>x!==item);
+  saveSettings(s); buildCustInflam(s); buildInflamChips(s); showToast(item+' removed');
+}
+function addGoodFood() {
+  const name = document.getElementById('new-good-name').value.trim();
+  if (!name) { showToast('Enter a name', true); return; }
+  const s = getSettings(); if (s.good.includes(name)) { showToast('Already in list', true); return; }
+  s.good.push(name); saveSettings(s); buildCustGood(s); buildGoodChips(s); showToast(name+' added');
+  document.getElementById('new-good-name').value = '';
+}
+function removeGoodFood(item) {
+  const s = getSettings(); s.good = s.good.filter(x=>x!==item);
+  saveSettings(s); buildCustGood(s); buildGoodChips(s); showToast(item+' removed');
+}
+function addLocation() {
+  const name = document.getElementById('new-loc-name').value.trim();
+  if (!name) { showToast('Enter a name', true); return; }
+  const s = getSettings(); if (s.locations.includes(name)) { showToast('Already in list', true); return; }
+  s.locations.push(name); saveSettings(s); buildCustLocations(s); buildLocationChips(s); showToast(name+' added');
+  document.getElementById('new-loc-name').value = '';
+}
+function removeLocation(loc) {
+  const s = getSettings(); s.locations = s.locations.filter(x=>x!==loc);
+  saveSettings(s); buildCustLocations(s); buildLocationChips(s); showToast(loc+' removed');
+}
+
+// ═══════════════════════════════════════
+// SELF CARE CUSTOMISE
+// ═══════════════════════════════════════
+function buildCustSelfCare(s) {
+  const el = document.getElementById('cust-selfcare-group'); el.innerHTML = '';
+  if (!s.selfCare.length) {
+    el.innerHTML = '<div class="cust-item"><div class="cust-item-name" style="color:var(--text-dim);font-size:13px">No items yet</div></div>';
+    return;
+  }
+  s.selfCare.forEach(item => {
+    const row = document.createElement('div'); row.className = 'cust-item';
+    row.innerHTML = `<div class="cust-item-name">${item}</div><button class="remove-btn" onclick="removeSelfCareItem('${escAttr(item)}')">Remove</button>`;
+    el.appendChild(row);
+  });
+}
+function addSelfCareItem() {
+  const name = document.getElementById('new-selfcare-name').value.trim();
+  if (!name) { showToast('Enter a name', true); return; }
+  const s = getSettings();
+  if (s.selfCare.includes(name)) { showToast('Already in list', true); return; }
+  s.selfCare.push(name); saveSettings(s); buildCustSelfCare(s); buildSelfCareChips(); showToast(name+' added');
+  document.getElementById('new-selfcare-name').value = '';
+}
+function removeSelfCareItem(item) {
+  const s = getSettings(); s.selfCare = s.selfCare.filter(x => x !== item);
+  saveSettings(s); buildCustSelfCare(s); buildSelfCareChips();
+  selfCare.delete(item);
+  showToast(item+' removed');
+}
+
+// ═══════════════════════════════════════
+// NAV + UTILS
+// ═══════════════════════════════════════
+function showView(id, btn) {
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active'); btn.classList.add('active');
+  if (id==='history') renderHistory();
+  if (id==='insights') renderInsights();
+  if (id==='customise') buildCustomiseView();
+}
+function showToast(msg, isErr) {
+  const t = document.getElementById('toast'); t.textContent = msg;
+  t.className = isErr ? 'err show' : 'show';
+  setTimeout(() => t.className = '', 2400);
+}
+function escAttr(s) { return s.replace(/'/g,"\\'"); }
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+function fmtDateFull(d) { return d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }
+function fmtDateShort(s) { return new Date(s+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'}); }
+</script>
+
+</body>
+</html>
